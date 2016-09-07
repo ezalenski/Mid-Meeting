@@ -7,13 +7,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 
 public class SkyScannerAPI {
     private final String url = "http://partners.api.skyscanner.net";
     private final String path = "/apiservices/browsequotes/v1.0/";
-    private final String params = "US/USD/en-US/US/US/2016-09/?apiKey=ed431724398942891113449898858056";
     private ArrayList<Quote> quotes = new ArrayList<>();
     HashMap<Integer, String> apiIdToName = new HashMap<>();
 
@@ -127,6 +128,9 @@ public class SkyScannerAPI {
      * @throws IOException
      */
     public InputStream getQuotes(HashMap<String, Integer> cityToVertex) throws IOException {
+        Date today = new Date();
+        SimpleDateFormat datelocale = new SimpleDateFormat("yyyy-MM");
+        String params = "US/USD/en-US/US/US/" + datelocale.format(today) + "/?apiKey=ed431724398942891113449898858056";
         HttpURLConnection connection = (HttpURLConnection) new URL(url + path + params).openConnection();
 
         connection.setRequestMethod("GET");
