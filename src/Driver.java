@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
 
 /**
  * Created by ezalenski on 8/30/16.
@@ -23,25 +22,28 @@ class Driver {
 
     public static void main(String[] args) {
         displayAuthorInfo();
+
         GeoMap map = new GeoMap();
+
         map.citiesFromStream(new InputStreamReader(Driver.class.getResourceAsStream("Resources/CityNames.txt")));
         map.neighborsFromStream(new InputStreamReader(Driver.class.getResourceAsStream("Resources/CityDistances.txt")), new NoWeight());
         map.populateFromStream(new InputStreamReader(Driver.class.getResourceAsStream("Resources/Participants.txt")));
         map.displayMap();
+
         System.out.println();
-        ArrayList<Double> results = map.calculateMinDistances(57);
-        for(int i = 0; i < results.size(); i++) {
-            System.out.println((i+1) + ": " + map.getCityName(i) + " is " + results.get(i) + " units from " + map.getCityName(57));
-        }
+        map.printMinDistances(58);
         System.out.println();
+
         Pair<String, Double> minAvgDistance = map.findMinAvgDistance();
         System.out.println(minAvgDistance.fst + " has the minimum average distance with " + minAvgDistance.snd + " units traveled.");
+        System.out.println();
 
         GeoMap costMap = new GeoMap();
         SkyScannerAPI skyScannerAPI = new SkyScannerAPI();
 
         costMap.citiesFromStream(new InputStreamReader(Driver.class.getResourceAsStream("Resources/CityNames.txt")));
         costMap.neighborsFromStream(new InputStreamReader(Driver.class.getResourceAsStream("Resources/CityDistances.txt")), new CalculateCostFromDistance());
+
         try {
             InputStream input = skyScannerAPI.getQuotes(costMap.getMapCityNamesToVertex());
             if(input != null) {
@@ -50,6 +52,7 @@ class Driver {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
         costMap.populateFromStream(new InputStreamReader(Driver.class.getResourceAsStream("Resources/Participants.txt")));
         minAvgDistance = costMap.findMinAvgDistance();
         DecimalFormat df = new DecimalFormat("#.00");

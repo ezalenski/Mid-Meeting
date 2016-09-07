@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * interface to allow different costfunctions to be passed to the neighbor function
@@ -138,10 +137,10 @@ class GeoMap {
     /**
      * Calculates the minimum distances from a city specified by the origin(vertex/id)
      * @param origin
-     * @return an arraylist where each index is the corresponding city's vertex/id and
-     * double is the distance from the origin
+     * @return an arraylist of costs where the index of each cost is the corresponding
+     * city's vertex
      */
-    public ArrayList<Double> calculateMinDistances(int origin) {
+    private ArrayList<Cost> calculateMinDistances(int origin) {
         PriorityQueue<Cost> costQueue = new PriorityQueue<>();
         ArrayList<Cost> costList = new ArrayList<>();
         for(City city : cities) {
@@ -179,7 +178,7 @@ class GeoMap {
                 }
             }
         }
-        return costList.stream().map(cost -> cost.cost).collect(Collectors.toCollection(ArrayList::new));
+        return costList;
     }
 
     /**
@@ -202,9 +201,9 @@ class GeoMap {
         for(City city : cities) {
             double avgTotal = 0.0;
             int totalSize = 0;
-            ArrayList<Double> results = calculateMinDistances(city.vertex);
+            ArrayList<Cost> results = calculateMinDistances(city.vertex);
             for(City populated : populatedCities) {
-                avgTotal += (populated.getSize() * results.get(populated.vertex));
+                avgTotal += (populated.getSize() * results.get(populated.vertex).cost);
                 totalSize += populated.getSize();
             }
             avgTotal = avgTotal / totalSize;
@@ -214,6 +213,18 @@ class GeoMap {
             }
         }
         return new Pair<>(cities.get(minVertex).name, minTotal);
+    }
+
+    /**
+     * prints all the minimum distances from target in alphabetic order
+     * @param target
+     */
+    public void printMinDistances(int target) {
+        ArrayList<Cost> results = calculateMinDistances(target-1);
+        Collections.sort(results, (Cost c1, Cost c2) -> c1.getDest().name.compareToIgnoreCase(c2.getDest().name));
+        for(Cost c : results) {
+            System.out.println(c.getDest().name + " is " + c.cost + " units from " + getCityName(target-1));
+        }
     }
 
     private class Cost implements Comparator<Cost>, Comparable<Cost>{
