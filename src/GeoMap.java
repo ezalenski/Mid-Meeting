@@ -1,125 +1,176 @@
 import com.sun.tools.javac.util.Pair;
 
-import java.io.File;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * interface to allow different costfunctions to be passed to the neighbor function
+ */
+interface CostFunction {
+    double calculate(double originalWeight);
+}
 
 /**
  * Created by ezalenski on 8/30/16.
  */
-public class GeoMap {
-    private ArrayList<City> cities;
-    private PriorityQueue<Cost> costQueue;
-    private ArrayList<City> populatedCities;
+class GeoMap {
+    private final ArrayList<City> cities;
+    private final ArrayList<City> populatedCities;
 
+    /**
+     * Default GeoMap with empty cities and populated cities
+     */
     public GeoMap() {
-        cities = new ArrayList<City>();
-        populatedCities = new ArrayList<City>();
+        cities = new ArrayList<>();
+        populatedCities = new ArrayList<>();
     }
 
+    /**
+     * copy constructor
+     * @param other
+     */
     public GeoMap( GeoMap other ) {
-        this.cities = new ArrayList<City>( other.cities );
-        this.populatedCities = new ArrayList<City>( other.populatedCities );
+        this.cities = new ArrayList<>( other.cities );
+        this.populatedCities = new ArrayList<>( other.populatedCities );
     }
 
-    public void citiesFromFile(String filename) {
+    public HashMap<String, Integer> getMapCityNamesToVertex() {
+        HashMap<String, Integer> ret = new HashMap<>();
+        for(City c : cities) {
+            ret.put(c.name.substring(0, c.name.indexOf(',')), c.vertex);
+        }
+        return ret;
+    }
+
+    /**
+     * populates map with cities from inputStreamReader
+     * @param inputStreamReader
+     */
+    public void citiesFromStream(InputStreamReader inputStreamReader) {
         try {
-            Scanner s = new Scanner( new File(filename));
-            int numCities = s.nextInt();
-            s.nextLine();
+            BufferedReader br = new BufferedReader(inputStreamReader);
+            String input;
             int count = 0;
-            while( numCities > 0 ) {
-                String name = s.nextLine();
-                City n = new City(count, name);
-                cities.add(count, n);
-                count++;
-                numCities--;
+            br.readLine();
+            while((input = br.readLine()) != null) {
+                if(!input.isEmpty()) {
+                    City n = new City(count, input);
+                    cities.add(count, n);
+                    count++;
+                }
             }
         } catch(IOException e) {
             System.err.println( e.getMessage());
         }
     }
 
-    public void neighborsFromFile(String filename) {
+    /**
+     * populates neighbors/edges of cities from inputStreamReader
+     * @param inputStreamReader
+     */
+    public void neighborsFromStream(InputStreamReader inputStreamReader, CostFunction cost) {
         try {
-            Scanner s = new Scanner( new File(filename));
-            int numEdges = s.nextInt();
-            s.nextLine();
-            while( numEdges > 0 ) {
-                int v1 = s.nextInt();
-                int v2 = s.nextInt();
-                double weight = s.nextDouble();
-                City c1 = cities.get(v1-1);
-                City c2 = cities.get(v2-1);
-                c1.addNeighbor(c2, weight);
-                c2.addNeighbor(c1, weight);
-                numEdges--;
-            }
-        }catch(IOException e) {
-            System.err.println( e.getMessage());
-        }
-    }
+            BufferedReader br = new BufferedReader(inputStreamReader);
+            br.readLine();
+            String input;
+            while((input = br.readLine()) != null) {
+                if(!input.isEmpty()) {
+                    StringTokenizer results = new StringTokenizer(input, " ");
 
-    public void populateFromFile(String filename) {
-        try {
-            Scanner s = new Scanner( new File(filename));
-            int numPeople = s.nextInt();
-            while( numPeople > 0 ) {
-                String name = s.next();
-                int id = s.nextInt();
-                City city = cities.get(id-1);
-                city.addPerson(name);
-                if(!populatedCities.contains(city)) {
-                    populatedCities.add(city);
+                    int v1 = Integer.parseInt(results.nextToken());
+                    int v2 = Integer.parseInt(results.nextToken());
+                    double weight = Double.parseDouble(results.nextToken());
+                    City c1 = cities.get(v1 - 1);
+                    City c2 = cities.get(v2 - 1);
+                    c1.addNeighbor(c2, cost.calculate(weight));
+                    c2.addNeighbor(c1, cost.calculate(weight));
                 }
-                numPeople--;
             }
         }catch(IOException e) {
             System.err.println( e.getMessage());
         }
     }
 
+    /**
+     * populates cities with people from inputStreamReader
+     * @param inputStreamReader
+     */
+    public void populateFromStream(InputStreamReader inputStreamReader) {
+        try {
+            BufferedReader br = new BufferedReader(inputStreamReader);
+            br.readLine();
+            String input;
+            while((input = br.readLine()) != null) {
+                if(!input.isEmpty()) {
+                    StringTokenizer results = new StringTokenizer(input, " ");
+                    String name = results.nextToken();
+                    int id = Integer.parseInt(results.nextToken());
+                    City city = cities.get(id - 1);
+                    city.addPerson(name);
+                    if (!populatedCities.contains(city)) {
+                        populatedCities.add(city);
+                    }
+                }
+            }
+        }catch(IOException e) {
+            System.err.println( e.getMessage());
+        }
+    }
+
+    /**
+     * Displays all the information in the format of
+     * "{city id}: {city name} - {city population} -> {neighbors name} Weight: {neighbor weight} -> ..."
+     */
     public void displayMap() {
         for (City city : cities ) {
             System.out.print(city.vertex + ": " + city.name + " - " + city.getSize());
             ArrayList<Neighbor> neighbors = city.getNeighbors();
             for(Neighbor neighbor : neighbors) {
-                System.out.print(" -> " + cities.get(neighbor.vertex).name + " Weight: " + neighbor.weight);
+                System.out.print(" -> " + neighbor.adj.name + " Weight: " + neighbor.weight);
             }
             System.out.print('\n');
         }
     }
 
+    /**
+     * Calculates the minimum distances from a city specified by the origin(vertex/id)
+     * @param origin
+     * @return an arraylist where each index is the corresponding city's vertex/id and
+     * double is the distance from the origin
+     */
     public ArrayList<Double> calculateMinDistances(int origin) {
-        costQueue = new PriorityQueue<Cost>();
-        ArrayList<Cost> costList = new ArrayList<Cost>();
+        PriorityQueue<Cost> costQueue = new PriorityQueue<>();
+        ArrayList<Cost> costList = new ArrayList<>();
         for(City city : cities) {
             Cost cityCost = new Cost(city, Double.MAX_VALUE);
             costList.add(city.vertex, cityCost);
         }
 
-        City start = cities.get(origin-1);
-        Cost startCost = costList.get(origin-1);
-        startCost.setDone(true);
+        City start = cities.get(origin);
+        Cost startCost = costList.get(origin);
+        startCost.setDone();
         startCost.cost = 0;
 
         ArrayList<Neighbor> neighbors = start.getNeighbors();
         for(Neighbor neighbor : neighbors) {
-            Cost neighborCost = costList.get(neighbor.vertex);
+            Cost neighborCost = costList.get(neighbor.adj.vertex);
             neighborCost.cost = neighbor.weight;
             costQueue.add(neighborCost);
         }
 
         while(!costQueue.isEmpty()) {
             Cost smallestCost = costQueue.poll();
-            smallestCost.setDone(true);
+            smallestCost.setDone();
             City dest = smallestCost.getDest();
             neighbors = dest.getNeighbors();
 
             for(Neighbor neighbor : neighbors) {
                 double newCost = smallestCost.cost + neighbor.weight;
-                Cost neighborCost = costList.get(neighbor.vertex);
-                if(!neighborCost.isDone() && (Double.compare(newCost, costList.get(neighbor.vertex).cost) == -1)) {
+                Cost neighborCost = costList.get(neighbor.adj.vertex);
+                if(!neighborCost.isDone() && (Double.compare(newCost, costList.get(neighbor.adj.vertex).cost) == -1)) {
                     if (costQueue.contains(neighborCost)) {
                         costQueue.remove(neighborCost);
                     }
@@ -128,24 +179,30 @@ public class GeoMap {
                 }
             }
         }
-        ArrayList<Double> ret = new ArrayList<Double>();
-        for(Cost cost : costList) {
-            ret.add(cost.cost);
-        }
-        return ret;
+        return costList.stream().map(cost -> cost.cost).collect(Collectors.toCollection(ArrayList::new));
     }
 
-    public String getCityName(int i) {
-        return cities.get(i-1).name;
+    /**
+     *  returns the String name of the city at the given vertex
+     * @param vertex
+     * @return
+     */
+    public String getCityName(int vertex) {
+        return cities.get(vertex).name;
     }
 
+    /**
+     * finds the midpoint and the minimum average distance of the current map given the cities and population
+     * returns a pair which contains the name of the midpoint and the total distance travelled.
+     * @return
+     */
     public Pair<String, Double> findMinAvgDistance() {
         double minTotal = Double.MAX_VALUE;
         int minVertex = -1;
         for(City city : cities) {
             double avgTotal = 0.0;
             int totalSize = 0;
-            ArrayList<Double> results = calculateMinDistances(city.vertex+1);
+            ArrayList<Double> results = calculateMinDistances(city.vertex);
             for(City populated : populatedCities) {
                 avgTotal += (populated.getSize() * results.get(populated.vertex));
                 totalSize += populated.getSize();
@@ -156,43 +213,64 @@ public class GeoMap {
                 minVertex = city.vertex;
             }
         }
-        return new Pair<String, Double>(cities.get(minVertex).name, minTotal);
+        return new Pair<>(cities.get(minVertex).name, minTotal);
     }
 
     private class Cost implements Comparator<Cost>, Comparable<Cost>{
-        private City dest;
+        private final City dest;
         double cost;
         private boolean done;
 
-        Cost() {
-            dest = null;
-            cost = 1;
-            done = false;
-        }
-
+        /**
+         * creates a Cost with the cost for going to the dest city
+         * @param dest
+         * @param cost
+         */
         Cost(City dest, double cost) {
             this.dest = dest;
             this.cost = cost;
             done = false;
         }
 
-        public void setDone(boolean done) {
-            this.done = done;
+        /**
+         * Set the Cost as done/visited
+         */
+        public void setDone() {
+            this.done = true;
         }
 
+        /**
+         * returns if the Cost is done/visited
+         * @return
+         */
         public boolean isDone() {
             return done;
         }
 
+        /**
+         * returns the City that is the destination of the Cost
+         * @return
+         */
         public City getDest() {
             return dest;
         }
 
+        /**
+         * Compares based doubles
+         * @param other
+         * @return
+         */
         @Override
         public int compareTo(Cost other) {
             return Double.compare(this.cost, other.cost);
         }
 
+        /**
+         * compares based on double value
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         @Override
         public int compare(Cost lhs, Cost rhs) {
             return Double.compare(lhs.cost, rhs.cost);
@@ -201,63 +279,90 @@ public class GeoMap {
 }
 
 class City {
-    public int vertex;
-    public String name;
-    private ArrayList<Neighbor> neighbors = new ArrayList<Neighbor>();
-    private ArrayList<Person> population = new ArrayList<Person>();
+    public final int vertex;
+    public final String name;
+    private ArrayList<Neighbor> neighbors = new ArrayList<>();
+    private ArrayList<Person> population = new ArrayList<>();
 
-    public City() {
-        vertex = -1;
-        name = "";
-    }
-
+    /**
+     * copy constructor, copies vertex, name, neighbors and population
+     * @param other
+     */
     public City( City other ) {
         this.vertex = other.vertex;
         this.name = other.name;
-        this.neighbors = new ArrayList<Neighbor>(other.neighbors);
-        this.population = new ArrayList<Person>(other.population);
+        this.neighbors = new ArrayList<>(other.neighbors);
+        this.population = new ArrayList<>(other.population);
     }
 
+    /**
+     * creates a new city with vertex and name
+     * @param vertex
+     * @param name
+     */
     public City( int vertex, String name ) {
         this.vertex = vertex;
         this.name = name;
     }
 
+    /**
+     * adds a city as a neighbor with a given weight
+     * @param other
+     * @param weight
+     * @return
+     */
     public boolean addNeighbor(City other, double weight) {
-        Neighbor adj = new Neighbor(other.vertex, weight);
+        Neighbor adj = new Neighbor(other, weight);
         return neighbors.add(adj);
     }
 
+    /**
+     * adds a person to the cities population with the String name
+     * @param name
+     * @return
+     */
     public boolean addPerson(String name) {
         Person inhabitant = new Person(name, this.vertex);
         return population.add(inhabitant);
     }
 
+    /**
+     * returns the population of the city
+     * @return
+     */
     public int getSize() {
         return population.size();
     }
 
-    public ArrayList<Neighbor> getNeighbors() {
+    /**
+     * returns an arraylist of neighbors
+     * @return
+     */
+    ArrayList<Neighbor> getNeighbors() {
         return neighbors;
     }
 }
 
 class Neighbor {
-    public int vertex;
-    public double weight;
+    public final City adj;
+    public final double weight;
 
-    Neighbor() {
-        vertex = -1;
-        weight = 1;
-    }
-
+    /**
+     * Copy constructor: copies the vertex and weight of the other neighbor
+     * @param other
+     */
     Neighbor( Neighbor other ) {
-        this.vertex = other.vertex;
+        this.adj = other.adj;
         this.weight = other.weight;
     }
 
-    Neighbor(int vertex, double weight) {
-        this.vertex = vertex;
+    /**
+     * creates a neighbor containing the corresponding City and the weight for that neighbor
+     * @param adj
+     * @param weight
+     */
+    Neighbor(City adj, double weight) {
+        this.adj = adj;
         this.weight = weight;
     }
 }
