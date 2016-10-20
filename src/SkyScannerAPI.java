@@ -130,7 +130,7 @@ public class SkyScannerAPI {
     public InputStream getQuotes(HashMap<String, Integer> cityToVertex) throws IOException {
         Date today = new Date();
         SimpleDateFormat datelocale = new SimpleDateFormat("yyyy-MM");
-        String params = "US/USD/en-US/US/US/" + datelocale.format(today) + "/?apiKey=ed431724398942891113449898858056";
+        String params = "US/USD/en-US/US/US/" + datelocale.format(today) + "/?apiKey=<API-KEY-HERE>";
         HttpURLConnection connection = (HttpURLConnection) new URL(url + path + params).openConnection();
 
         connection.setRequestMethod("GET");
